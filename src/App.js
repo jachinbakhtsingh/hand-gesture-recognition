@@ -1,0 +1,189 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+
+function App() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [activeTab, setActiveTab] = useState('Overview');
+  const [gesture, setGesture] = useState('');
+  const [accuracy, setAccuracy] = useState('');
+  const [imageList, setImageList] = useState([]);
+  const [gestureCounts, setGestureCounts] = useState({
+    T: 0,
+    S: 0,
+    H: 0,
+    N: 0,
+    M: 0
+  });
+
+  const handleLogin = () => {
+    // Simple check for username and password
+    if (username === 'admin' && password === 'admin') {
+      setIsLoggedIn(true);
+    } else {
+      alert('Invalid username or password');
+    }
+  };
+
+  const startCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+    }
+  };
+
+  const stopCapture = () => {
+    const video = document.getElementById('video');
+    video.srcObject.getTracks().forEach(track => track.stop());
+  };
+
+  const takeSnapshot = async () => {
+    const video = document.getElementById('video');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+  
+    try {
+      const response = await axios.post('http://localhost:5000/predict', { image: dataUrl, time: new Date().toLocaleTimeString() }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const gestureCharacter = response?.data?.result?.charAt(0); // Get the first character of the result
+      // Increment gesture count
+      setGestureCounts(prevCounts => ({ ...prevCounts, [gestureCharacter]: prevCounts[gestureCharacter] + 1 }));
+      // Mapping of gesture characters to meanings
+      const gestureMeanings = {
+        T: 'Tea',
+        M: 'Water',
+        A: 'Hello',
+        S: 'Help',
+        N: 'No'
+      };
+      // Get the meaning of the gesture or set it to the original character if not found in the mapping
+      const gestureResult = gestureMeanings[gestureCharacter] || gestureCharacter;
+      setGesture(gestureResult);
+      setAccuracy(`Accuracy: ${response.data.result.substring(1)}%`); // Get the percentage from the result
+      // Add image to the list with current time
+      const currentTime = new Date().toLocaleTimeString();
+      setImageList(prevList => [...prevList, { src: dataUrl, time: currentTime }]);
+    } catch (error) {
+      console.error('Error sending gesture:', error);
+    }
+  };
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="login-container">
+        <div className="login-form">
+          <h2>Login</h2>
+          <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+          <button onClick={handleLogin}>Login</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="top-panel">
+        <div className="app-name">Enhancing User Integration thru a Digital Motion Interface</div>
+        <div className="user-status">
+          {isLoggedIn ? (
+            <button onClick={() => setIsLoggedIn(false)}>Log out</button>
+          ) : (
+            <button disabled>Sign in</button>
+          )}
+        </div>
+      </div>
+      <div className="app-container">
+        <div className="sidebar">
+          <div className="tab" onClick={() => handleTabClick('Overview')}>Overview</div>
+          <div className="tab" onClick={() => handleTabClick('Configure')}>Configure</div>
+          <div className="tab" onClick={() => handleTabClick('Calibration')}>Calibration</div>
+          <div className="tab" onClick={() => handleTabClick('History')}>History</div>
+        </div>
+        <div className="content">
+          {/* Content for Overview tab */}
+          {activeTab === 'Overview' && (
+            <>
+              <h2>Patient Details</h2>
+              <p>Name: admin</p>
+              {/* Table of content */}
+              <table className="patient-signals">
+                <thead>
+                  <tr>
+                    <th>Signal</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Number of Water taken</td>
+                    <td>{gestureCounts.M}</td>
+                  </tr>
+                  <tr>
+                    <td>Number of Tea taken</td>
+                    <td>{gestureCounts.T}</td>
+                  </tr>
+                  <tr>
+                    <td>Number of Help taken</td>
+                    <td>{gestureCounts.S}</td>
+                  </tr>
+                  <tr>
+                    <td>Number of No gestures</td>
+                    <td>{gestureCounts.N}</td>
+                  </tr>
+                  <tr>
+                    <td>Number of Hello calls made with time</td>
+                    <td>{gestureCounts.H}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </>
+          )}
+          {/* Add routes for other tabs */}
+          {activeTab === 'Calibration' && (
+            <div>
+              <button onClick={startCapture}>Start</button>
+              <button onClick={stopCapture}>Stop</button>
+              <button onClick={takeSnapshot}>Send Gesture</button>
+              <br />
+              <video id="video" width="320" height="240" autoPlay></video>
+              <br />
+              <div>Gesture: {gesture}</div>
+              <div>{accuracy}</div>
+            </div>
+          )}
+          {activeTab === 'History' && (
+            <div className="image-grid">
+              <h2>Image List</h2>
+              <ul>
+                {imageList.map((image, index) => (
+                  <li key={index}>
+                    <img src={image.src} alt={`Gesture ${index + 1}`} />
+                    <p>Time: {image.time}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

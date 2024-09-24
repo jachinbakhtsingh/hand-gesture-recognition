@@ -1,0 +1,110 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function Overview() {
+  const [patientName, setPatientName] = useState('');
+  const [waterCount, setWaterCount] = useState(0);
+  const [teaCount, setTeaCount] = useState(0);
+  const [helpCount, setHelpCount] = useState(0);
+  const [helloCount, setHelloCount] = useState(0);
+  const [signalHistory, setSignalHistory] = useState([]);
+
+  useEffect(() => {
+    // Fetch patient data and signal history when the component mounts
+    fetchPatientData();
+    fetchSignalHistory();
+  }, []);
+
+  const fetchPatientData = async () => {
+    try {
+      // Fetch patient data from the backend
+      const response = await axios.get('http://localhost:5000/patient');
+      setPatientName(response.data.name);
+    } catch (error) {
+      console.error('Error fetching patient data:', error);
+    }
+  };
+
+  const fetchSignalHistory = async () => {
+    try {
+      // Fetch signal history from the backend
+      const response = await axios.get('http://localhost:5000/signal/history');
+      const history = response.data.history;
+      // Calculate counts for each signal type
+      let water = 0, tea = 0, help = 0, hello = 0;
+      history.forEach(entry => {
+        switch (entry.signalType) {
+          case 'Water':
+            water++;
+            break;
+          case 'Tea':
+            tea++;
+            break;
+          case 'Help':
+            help++;
+            break;
+          case 'Hello':
+            hello++;
+            break;
+          default:
+            break;
+        }
+      });
+      // Set counts in state
+      setWaterCount(water);
+      setTeaCount(tea);
+      setHelpCount(help);
+      setHelloCount(hello);
+      setSignalHistory(history);
+    } catch (error) {
+      console.error('Error fetching signal history:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Overview</h2>
+      <div>Patient Name: {patientName}</div>
+      <br />us
+      <h3>Signal History</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Signal Type</th>
+            <th>Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Number of Water taken</td>
+            <td>{waterCount}</td>
+          </tr>
+          <tr>
+            <td>Number of Tea taken</td>
+            <td>{teaCount}</td>
+          </tr>
+          <tr>
+            <td>Number of Help taken</td>
+            <td>{helpCount}</td>
+          </tr>
+          <tr>
+            <td>Number of Hello call made</td>
+            <td>{helloCount}</td>
+          </tr>
+        </tbody>
+      </table>
+      <br />
+      <h3>Signal History</h3>
+      <ul>
+        {signalHistory.map((entry, index) => (
+          <li key={index}>
+            <div>Signal Type: {entry.signalType}</div>
+            <div>Time: {entry.time}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default Overview;
